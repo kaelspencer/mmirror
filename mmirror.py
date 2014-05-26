@@ -70,17 +70,17 @@ def iterate_input(absolute, relative, depth, followsymlinks):
     """
     result = []
 
-    if depth > 0:
-        for dir in os.listdir(absolute):
-            obj = {
-                'absolute': '%s/%s' % (absolute, dir),
-                'relative': ('%s/%s' % (relative, dir)).lstrip('/'),
-                'at_depth': depth == 1
-            }
+    for dir in os.listdir(absolute):
+        obj = {
+            'absolute': '%s/%s' % (absolute, dir),
+            'relative': ('%s/%s' % (relative, dir)).lstrip('/'),
+            'at_depth': depth == 1
+        }
 
-            if os.path.isdir(obj['absolute']):
-                if followsymlinks or not os.path.islink(obj['absolute']):
-                    result.append(obj)
+        if os.path.isdir(obj['absolute']):
+            if followsymlinks or not os.path.islink(obj['absolute']):
+                result.append(obj)
+                if not obj['at_depth']:
                     result.extend(iterate_input(obj['absolute'],
                                                 obj['relative'], depth - 1,
                                                 followsymlinks))
