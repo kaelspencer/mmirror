@@ -19,9 +19,11 @@ log = logging.getLogger(__name__)
                                           writable=True, resolve_path=True))
 @click.option('-d', '--depth', default=1, help='Defines the depth at which '
               'symlinks will be created. 1 will link folders under source.')
+@click.option('--followsymlinks', is_flag=True,
+              help='Follow symbolic links in the source paths')
 @click.option('-v', '--verbose', count=True,
               help='Logging verbosity, -vv for very verbose.')
-def mmirror(source_high, source_low, output, depth, verbose):
+def mmirror(source_high, source_low, output, depth, followsymlinks, verbose):
     if verbose == 1:
         log.setLevel(logging.INFO)
     elif verbose != 0:
@@ -36,27 +38,29 @@ def mmirror(source_high, source_low, output, depth, verbose):
     log.info('Low:    %s', source_low)
     log.info('Output: %s', output)
 
-    high = iterate_input(source_high + '/', '', depth)
-    low = iterate_input(source_low + '/', '', depth)
+    high = iterate_input(source_high, '', depth, followsymlinks)
+    low = iterate_input(source_low, '', depth, followsymlinks)
     log.debug('Dumping high source object\n%s', pformat(high))
     log.debug('Dumping low source object\n%s', pformat(low))
 
 
-def iterate_input(absolute, relative, depth):
+def iterate_input(absolute, relative, depth, followsymlinks):
     result = []
 
     if depth > 0:
         for dir in os.listdir(absolute):
             obj = {
-                'absolute': '%s%s/' % (absolute, dir),
-                'relative': '%s%s/' % (relative, dir),
+                'absolute': '%s/%s' % (absolute, dir),
+                'relative': ('%s/%s' % (relative, dir)).lstrip('/'),
                 'at_depth': depth == 1
             }
 
             if os.path.isdir(obj['absolute']):
-                result.append(obj)
-                result.extend(iterate_input(obj['absolute'], obj['relative'],
-                                            depth - 1))
+                if followsymlinks or not os.path.islink(obj['absolute']):
+                    result.append(obj)
+                    result.extend(iterate_input(obj['absolute'],
+                                                obj['relative'], depth - 1,
+                                                followsymlinks))
     return result
 
 if __name__ == '__main__':
