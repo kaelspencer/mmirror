@@ -1,6 +1,8 @@
 #!/usr/bin/python
 import click
 import logging
+from pprint import pformat
+import os
 
 logging.basicConfig(
     format='%(asctime)s %(levelname)s %(filename)s:%(lineno)d: %(message)s',
@@ -15,17 +17,47 @@ log = logging.getLogger(__name__)
                                               resolve_path=True))
 @click.argument('output', type=click.Path(exists=True, file_okay=False,
                                           writable=True, resolve_path=True))
+@click.option('-d', '--depth', default=1, help='Defines the depth at which '
+              'symlinks will be created. 1 will link folders under source.')
 @click.option('-v', '--verbose', count=True,
               help='Logging verbosity, -vv for very verbose.')
-def mmirror(source_high, source_low, output, verbose):
+def mmirror(source_high, source_low, output, depth, verbose):
     if verbose == 1:
         log.setLevel(logging.INFO)
     elif verbose != 0:
         log.setLevel(logging.DEBUG)
 
+    # Depth must be >=1. Otherwise, the user just wants the source folder.
+    if depth < 1:
+        log.error('Depth must be greater than 1.')
+        return
+
     log.info('High:   %s', source_high)
     log.info('Low:    %s', source_low)
     log.info('Output: %s', output)
+
+    high = iterate_input(source_high + '/', '', depth)
+    low = iterate_input(source_low + '/', '', depth)
+    log.debug('Dumping high source object\n%s', pformat(high))
+    log.debug('Dumping low source object\n%s', pformat(low))
+
+
+def iterate_input(absolute, relative, depth):
+    result = []
+
+    if depth > 0:
+        for dir in os.listdir(absolute):
+            obj = {
+                'absolute': '%s%s/' % (absolute, dir),
+                'relative': '%s%s/' % (relative, dir),
+                'at_depth': depth == 1
+            }
+
+            if os.path.isdir(obj['absolute']):
+                result.append(obj)
+                result.extend(iterate_input(obj['absolute'], obj['relative'],
+                                            depth - 1))
+    return result
 
 if __name__ == '__main__':
     mmirror()
