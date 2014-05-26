@@ -24,6 +24,23 @@ log = logging.getLogger(__name__)
 @click.option('-v', '--verbose', count=True,
               help='Logging verbosity, -vv for very verbose.')
 def mmirror(source_high, source_low, output, depth, followsymlinks, verbose):
+    """Create a symlinked merged directory of high and low sources.
+
+    Two inputs are provided which have some overlapping data but with different
+    quality. This method merges these two inputs. The low output contains the
+    merge while favoring the low quality input; the high output favors the
+    high quality input. Both output folders will have the same data just of
+    different quality.
+
+    Imagine inputs the following inputs as arrays instead of folders.
+    Low: 0, 1, 2, 3, 4
+    High: 2, 3, 4, 5
+
+    That will yield the following output arrays, where the l and h prefix
+    correspond to which source is used.
+    Low: l0, l1, l2, l3, l4, h5
+    High: l0, l1, h2, h3, h4, 5
+    """
     if verbose == 1:
         log.setLevel(logging.INFO)
     elif verbose != 0:
@@ -45,6 +62,12 @@ def mmirror(source_high, source_low, output, depth, followsymlinks, verbose):
 
 
 def iterate_input(absolute, relative, depth, followsymlinks):
+    """Recursively iterate through the input creating objects for merging.
+
+    Create an object for each directory with absolute path, relative path, and
+    a flag indicating whether this directory is at the target depth. This does
+    not make a recursive call on directories already at depth.
+    """
     result = []
 
     if depth > 0:
