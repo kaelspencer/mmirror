@@ -55,10 +55,14 @@ def mmirror(source_high, source_low, output, depth, followsymlinks, verbose):
     log.info('Low:    %s', source_low)
     log.info('Output: %s', output)
 
-    high = iterate_input(source_high, '', depth, followsymlinks)
-    low = iterate_input(source_low, '', depth, followsymlinks)
-    log.debug('Dumping high source object\n%s', pformat(high))
-    log.debug('Dumping low source object\n%s', pformat(low))
+    shigh = iterate_input(source_high, '', depth, followsymlinks)
+    slow = iterate_input(source_low, '', depth, followsymlinks)
+    log.debug('Dumping high source object\n%s', pformat(shigh))
+    log.debug('Dumping low source object\n%s', pformat(slow))
+
+    dhigh, dlow = validate_output_directories(output, depth)
+    log.debug('Dumping high destination object\n%s', pformat(dhigh))
+    log.debug('Dumping low destination object\n%s', pformat(dlow))
 
 
 def iterate_input(absolute, relative, depth, followsymlinks):
@@ -85,6 +89,33 @@ def iterate_input(absolute, relative, depth, followsymlinks):
                                                 obj['relative'], depth - 1,
                                                 followsymlinks))
     return result
+
+
+def validate_output_directories(base, depth):
+    """Ensure the output directories exist and populate object lists.
+
+    If the output directories don't exist, create them. If they do, populate
+    object lists with their contents. This will be used when generating the
+    output links.
+    """
+    def ensure_directory(path):
+        if not os.path.exists(path):
+            log.info('Creating directory %s', path)
+            os.mkdir(path)
+
+    output_high = base + '/music.high'
+    output_low = base + '/music.low'
+    ensure_directory(base)
+    ensure_directory(output_high)
+    ensure_directory(output_low)
+
+    # Iterate over the output directories. Explicitly avoid going into symlink
+    # folders. That behavior could be weird.
+    high = iterate_input(output_high, '', depth, False)
+    low = iterate_input(output_low, '', depth, False)
+
+    return high, low
+
 
 if __name__ == '__main__':
     mmirror()
