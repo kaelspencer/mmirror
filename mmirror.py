@@ -55,8 +55,8 @@ def mmirror(source_high, source_low, output, depth, followsymlinks, verbose):
     log.info('Low:    %s', source_low)
     log.info('Output: %s', output)
 
-    shigh = iterate_input(source_high, '', depth, followsymlinks)
-    slow = iterate_input(source_low, '', depth, followsymlinks)
+    shigh = iterate_input(source_high, depth, followsymlinks)
+    slow = iterate_input(source_low, depth, followsymlinks)
     log.debug('Dumping high source object\n%s', pformat(shigh))
     log.debug('Dumping low source object\n%s', pformat(slow))
 
@@ -65,7 +65,7 @@ def mmirror(source_high, source_low, output, depth, followsymlinks, verbose):
     log.debug('Dumping low destination object\n%s', pformat(dlow))
 
 
-def iterate_input(absolute, relative, depth, followsymlinks):
+def iterate_input(absolute, depth, followsymlinks, relative=''):
     """Recursively iterate through the input creating objects for merging.
 
     Create an object for each directory with absolute path, relative path, and
@@ -85,9 +85,9 @@ def iterate_input(absolute, relative, depth, followsymlinks):
             if followsymlinks or not os.path.islink(obj['absolute']):
                 result.append(obj)
                 if not obj['at_depth']:
-                    result.extend(iterate_input(obj['absolute'],
-                                                obj['relative'], depth - 1,
-                                                followsymlinks))
+                    result.extend(iterate_input(obj['absolute'], depth - 1,
+                                                followsymlinks,
+                                                obj['relative']))
     return result
 
 
@@ -111,8 +111,8 @@ def validate_output_directories(base, depth):
 
     # Iterate over the output directories. Explicitly avoid going into symlink
     # folders. That behavior could be weird.
-    high = iterate_input(output_high, '', depth, False)
-    low = iterate_input(output_low, '', depth, False)
+    high = iterate_input(output_high, depth, False)
+    low = iterate_input(output_low, depth, False)
 
     return high, low
 
