@@ -10,6 +10,28 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 
+class Folder(object):
+    """This class represents needed information about a folder."""
+    def __init__(self, absolute_path, relative_path, at_depth):
+        super(Folder, self).__init__()
+        self.absolute_path = absolute_path
+        self.relative_path = relative_path
+        self.at_depth = at_depth
+
+    def absolute_path(self):
+        return self.absolute_path
+
+    def relative_path(self):
+        return self.relative_path
+
+    def at_depth(self):
+        return self.at_depth
+
+    def __repr__(self):
+        return '<%s, %s, %s>' % (self.absolute_path, self.relative_path,
+                                 self.at_depth)
+
+
 @click.command()
 @click.argument('source_high', type=click.Path(exists=True, file_okay=False,
                                                resolve_path=True))
@@ -75,19 +97,16 @@ def iterate_input(absolute, depth, followsymlinks, relative=''):
     result = []
 
     for dir in os.listdir(absolute):
-        obj = {
-            'absolute': '%s/%s' % (absolute, dir),
-            'relative': ('%s/%s' % (relative, dir)).lstrip('/'),
-            'at_depth': depth == 1
-        }
+        obj = Folder('%s/%s' % (absolute, dir),
+                    ('%s/%s' % (relative, dir)).lstrip('/'), depth == 1)
 
-        if os.path.isdir(obj['absolute']):
-            if followsymlinks or not os.path.islink(obj['absolute']):
+        if os.path.isdir(obj.absolute_path):
+            if followsymlinks or not os.path.islink(obj.absolute_path):
                 result.append(obj)
-                if not obj['at_depth']:
-                    result.extend(iterate_input(obj['absolute'], depth - 1,
+                if not obj.at_depth:
+                    result.extend(iterate_input(obj.absolute_path, depth - 1,
                                                 followsymlinks,
-                                                obj['relative']))
+                                                obj.relative_path))
     return result
 
 
