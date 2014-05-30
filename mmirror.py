@@ -82,17 +82,20 @@ def mmirror(source_high, source_low, output, depth, followsymlinks, verbose):
 
     shigh = iterate_input(source_high, depth, followsymlinks)
     slow = iterate_input(source_low, depth, followsymlinks)
-    log.debug('Dumping high source object\n%s', pformat(shigh))
-    log.debug('Dumping low source object\n%s', pformat(slow))
+    log.debug('Dumping high source list\n%s', pformat(shigh))
+    log.debug('Dumping low source list\n%s', pformat(slow))
 
     dhigh, dlow = validate_output_directories(output, depth)
-    log.debug('Dumping high destination object\n%s', pformat(dhigh))
-    log.debug('Dumping low destination object\n%s', pformat(dlow))
+    log.debug('Dumping high destination list\n%s', pformat(dhigh))
+    log.debug('Dumping low destination list\n%s', pformat(dlow))
 
     merged_high = merge(shigh, slow)
     merged_low = merge(slow, shigh)
     log.debug('Dumping high merged list\n%s', pformat(merged_high))
     log.debug('Dumping low merged list\n%s', pformat(merged_low))
+
+    create_output('%s/music.high' % output, merged_high)
+    create_output('%s/music.low' % output, merged_low)
 
 
 def iterate_input(absolute, depth, followsymlinks, relative=''):
@@ -141,6 +144,11 @@ def validate_output_directories(base, depth):
     high = iterate_input(output_high, depth, False)
     low = iterate_input(output_low, depth, False)
 
+    # Overwrite options are not clear. Fail if the output directories aren't
+    # empty.
+    if len(high) or len(low):
+        raise Exception('Output directory must be empty.')
+
     return high, low
 
 
@@ -154,7 +162,24 @@ def merge(primary, secondary):
     for f in secondary:
         if f not in result:
             result.append(f)
+    result.sort(key=Folder.relative_path)
     return result
+
+
+def create_output(base, folders):
+    """Create the output directory structure.
+
+    At the correct level of folder items create the symlink structure. The
+    folders list should be sorted by the relative path.
+    """
+    for f in folders:
+        path = '%s/%s' % (base, f.relative_path)
+        if f.at_depth:
+            log.debug('Linking %s to %s', path, f.absolute_path)
+            os.symlink(f.absolute_path, path)
+        elif not os.path.exists(path):
+            log.debug('Creating directory: %s', path)
+            os.mkdir(path)
 
 if __name__ == '__main__':
     mmirror()
