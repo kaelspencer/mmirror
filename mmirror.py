@@ -31,6 +31,9 @@ class Folder(object):
         return '<%s, %s, %s>' % (self.absolute_path, self.relative_path,
                                  self.at_depth)
 
+    def __eq__(self, other):
+        return self.relative_path == other.relative_path
+
 
 @click.command()
 @click.argument('source_high', type=click.Path(exists=True, file_okay=False,
@@ -86,6 +89,11 @@ def mmirror(source_high, source_low, output, depth, followsymlinks, verbose):
     log.debug('Dumping high destination object\n%s', pformat(dhigh))
     log.debug('Dumping low destination object\n%s', pformat(dlow))
 
+    merged_high = merge(shigh, slow)
+    merged_low = merge(slow, shigh)
+    log.debug('Dumping high merged list\n%s', pformat(merged_high))
+    log.debug('Dumping low merged list\n%s', pformat(merged_low))
+
 
 def iterate_input(absolute, depth, followsymlinks, relative=''):
     """Recursively iterate through the input creating objects for merging.
@@ -135,6 +143,18 @@ def validate_output_directories(base, depth):
 
     return high, low
 
+
+def merge(primary, secondary):
+    """Merge secondary onto primary.
+
+    Merge the two lists of Folders together. When there are duplicates the
+    resulting list will contain the object from primary.
+    """
+    result = primary
+    for f in secondary:
+        if f not in result:
+            result.append(f)
+    return result
 
 if __name__ == '__main__':
     mmirror()
