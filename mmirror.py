@@ -40,15 +40,20 @@ class Folder(object):
                                                resolve_path=True))
 @click.argument('source_low', type=click.Path(exists=True, file_okay=False,
                                               resolve_path=True))
-@click.argument('output', type=click.Path(exists=True, file_okay=False,
-                                          writable=True, resolve_path=True))
+@click.option('--output_high', type=click.Path(exists=False, file_okay=False,
+                                               resolve_path=True),
+              help='The output directory for the high merge.')
+@click.option('--output_low', type=click.Path(exists=False, file_okay=False,
+                                              resolve_path=True),
+              help='The output directory for the low merge.')
 @click.option('-d', '--depth', default=1, help='Defines the depth at which '
               'symlinks will be created. 1 will link folders under source.')
 @click.option('--followsymlinks', is_flag=True,
               help='Follow symbolic links in the source paths')
 @click.option('-v', '--verbose', count=True,
               help='Logging verbosity, -vv for very verbose.')
-def mmirror(source_high, source_low, output, depth, followsymlinks, verbose):
+def mmirror(source_high, source_low, output_high, output_low, depth,
+            followsymlinks, verbose):
     """Create a symlinked merged directory of high and low sources.
 
     Two inputs are provided which have some overlapping data but with different
@@ -76,26 +81,31 @@ def mmirror(source_high, source_low, output, depth, followsymlinks, verbose):
         log.error('Depth must be greater than 1.')
         return
 
-    log.info('High:   %s', source_high)
-    log.info('Low:    %s', source_low)
-    log.info('Output: %s', output)
+    # At least one output directory needs to be set.
+    if output_high is None and output_low is None:
+        log.error('At least one output directory needs to be set.')
+        return
+
+    # The two outputs can't be the same.
+    if output_high == output_low:
+        log.error('The two output directories can\'t be the same.')
+        return
+
+    log.info('High:        %s', source_high)
+    log.info('Low:         %s', source_low)
+    log.info('Output High: %s', output_high)
+    log.info('Output Low:  %s', output_low)
 
     shigh = iterate_input(source_high, depth, followsymlinks)
     slow = iterate_input(source_low, depth, followsymlinks)
     log.debug('Dumping high source list\n%s', pformat(shigh))
     log.debug('Dumping low source list\n%s', pformat(slow))
 
-    dhigh, dlow = validate_output_directories(output, depth)
-    log.debug('Dumping high destination list\n%s', pformat(dhigh))
-    log.debug('Dumping low destination list\n%s', pformat(dlow))
+    if output_high:
+        mirror(output_high, shigh, slow)
 
-    merged_high = merge(shigh, slow)
-    merged_low = merge(slow, shigh)
-    log.debug('Dumping high merged list\n%s', pformat(merged_high))
-    log.debug('Dumping low merged list\n%s', pformat(merged_low))
-
-    create_output('%s/music.high' % output, merged_high)
-    create_output('%s/music.low' % output, merged_low)
+    if output_low:
+        mirror(output_low, slow, shigh)
 
 
 def iterate_input(absolute, depth, followsymlinks, relative=''):
@@ -121,37 +131,6 @@ def iterate_input(absolute, depth, followsymlinks, relative=''):
     return result
 
 
-def validate_output_directories(base, depth):
-    """Ensure the output directories exist and populate object lists.
-
-    If the output directories don't exist, create them. If they do, populate
-    object lists with their contents. This will be used when generating the
-    output links.
-    """
-    def ensure_directory(path):
-        if not os.path.exists(path):
-            log.info('Creating directory %s', path)
-            os.mkdir(path)
-
-    output_high = base + '/music.high'
-    output_low = base + '/music.low'
-    ensure_directory(base)
-    ensure_directory(output_high)
-    ensure_directory(output_low)
-
-    # Iterate over the output directories. Explicitly avoid going into symlink
-    # folders. That behavior could be weird.
-    high = iterate_input(output_high, depth, False)
-    low = iterate_input(output_low, depth, False)
-
-    # Overwrite options are not clear. Fail if the output directories aren't
-    # empty.
-    if len(high) or len(low):
-        raise Exception('Output directory must be empty.')
-
-    return high, low
-
-
 def merge(primary, secondary):
     """Merge secondary onto primary.
 
@@ -161,6 +140,27 @@ def merge(primary, secondary):
     primary.extend(filter(lambda x: x not in primary, secondary))
     primary.sort(key=Folder.relative_path)
     return primary
+
+
+def mirror(path, primary, secondary):
+    """Merge secondary onto primary and output the result to path.
+
+    First, ensure the target path exists. Then merge secondary onto primary.
+    Finally, call create_output.
+    """
+    if not os.path.exists(path):
+        log.info('Creating directory %s', path)
+        os.mkdir(path)
+
+    # Overwrite options are not clear. Fail if the output directory isn't empty
+    output = iterate_input(path, 1, False)
+    if len(output):
+        raise Exception('Output directory must be empty.')
+
+    merged = merge(primary, secondary)
+    log.debug('Dumping merged list\n%s', pformat(merged))
+
+    create_output(path, merged)
 
 
 def create_output(base, folders):
