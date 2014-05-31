@@ -131,22 +131,12 @@ def iterate_input(absolute, depth, followsymlinks, relative=''):
     return result
 
 
-def merge(primary, secondary):
-    """Merge secondary onto primary.
-
-    Merge the two lists of Folders together. When there are duplicates the
-    resulting list will contain the object from primary.
-    """
-    primary.extend(filter(lambda x: x not in primary, secondary))
-    primary.sort(key=Folder.relative_path)
-    return primary
-
-
 def mirror(path, primary, secondary):
     """Merge secondary onto primary and output the result to path.
 
-    First, ensure the target path exists. Then merge secondary onto primary.
-    Finally, call create_output.
+    First, ensure the target path exists. Then merge the two lists of Folders
+    together. When there are duplicates the resulting list will contain the
+    object from primary. Finally, call create_output.
     """
     if not os.path.exists(path):
         log.info('Creating directory %s', path)
@@ -157,7 +147,9 @@ def mirror(path, primary, secondary):
     if len(output):
         raise Exception('Output directory must be empty.')
 
-    merged = merge(primary, secondary)
+    merged = list(primary)
+    merged.extend(filter(lambda x: x not in primary, secondary))
+    merged.sort(key=Folder.relative_path)
     log.debug('Dumping merged list\n%s', pformat(merged))
 
     create_output(path, merged)
