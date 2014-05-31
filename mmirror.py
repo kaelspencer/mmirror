@@ -158,12 +158,9 @@ def merge(primary, secondary):
     Merge the two lists of Folders together. When there are duplicates the
     resulting list will contain the object from primary.
     """
-    result = primary
-    for f in secondary:
-        if f not in result:
-            result.append(f)
-    result.sort(key=Folder.relative_path)
-    return result
+    primary.extend(filter(lambda x: x not in primary, secondary))
+    primary.sort(key=Folder.relative_path)
+    return primary
 
 
 def create_output(base, folders):
