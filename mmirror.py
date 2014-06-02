@@ -53,7 +53,7 @@ class Folder(object):
 @click.option('--overwritesymlinks', is_flag=True,
               help='Overwrite symlinks in the output directory.')
 @click.option('--simulate', is_flag=True,
-              help='Simulation mode. Don\' actually do anything.')
+              help='Simulation mode. Don\'t actually do anything.')
 @click.option('-v', '--verbose', count=True,
               help='Logging verbosity, -vv for very verbose.')
 def mmirror(source_high, source_low, output_high, output_low, depth,
@@ -67,12 +67,16 @@ def mmirror(source_high, source_low, output_high, output_low, depth,
     different quality.
 
     Imagine inputs the following inputs as arrays instead of folders.
+
     Low: 0, 1, 2, 3, 4
+
     High: 2, 3, 4, 5
 
     That will yield the following output arrays, where the l and h prefix
     correspond to which source is used.
+
     Low: l0, l1, l2, l3, l4, h5
+
     High: l0, l1, h2, h3, h4, 5
 
     To update the output directories, run with --overwritesymlinks. This will
