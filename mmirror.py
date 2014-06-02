@@ -52,10 +52,12 @@ class Folder(object):
               help='Follow symbolic links in the source paths')
 @click.option('--overwritesymlinks', is_flag=True,
               help='Overwrite symlinks in the output directory.')
+@click.option('--simulate', is_flag=True,
+              help='Simulation mode. Don\' actually do anything.')
 @click.option('-v', '--verbose', count=True,
               help='Logging verbosity, -vv for very verbose.')
 def mmirror(source_high, source_low, output_high, output_low, depth,
-            followsymlinks, overwritesymlinks, verbose):
+            followsymlinks, overwritesymlinks, simulate, verbose):
     """Create a symlinked merged directory of high and low sources.
 
     Two inputs are provided which have some overlapping data but with different
@@ -108,10 +110,10 @@ def mmirror(source_high, source_low, output_high, output_low, depth,
     log.debug('Dumping low source list\n%s', pformat(slow))
 
     if output_high:
-        mirror(output_high, shigh, slow, overwritesymlinks)
+        mirror(output_high, shigh, slow, overwritesymlinks, simulate)
 
     if output_low:
-        mirror(output_low, slow, shigh, overwritesymlinks)
+        mirror(output_low, slow, shigh, overwritesymlinks, simulate)
 
 
 def iterate_input(absolute, depth, followsymlinks, relative=''):
@@ -137,7 +139,7 @@ def iterate_input(absolute, depth, followsymlinks, relative=''):
     return result
 
 
-def mirror(path, primary, secondary, overwrite):
+def mirror(path, primary, secondary, overwrite, simulate):
     """Merge secondary onto primary and output the result to path.
 
     First, ensure the target path exists. Then merge the two lists of Folders
@@ -146,17 +148,18 @@ def mirror(path, primary, secondary, overwrite):
     """
     if not os.path.exists(path):
         log.info('Creating directory %s', path)
-        os.mkdir(path)
+        if not simulate:
+            os.mkdir(path)
 
     merged = list(primary)
     merged.extend(filter(lambda x: x not in primary, secondary))
     merged.sort(key=Folder.relative_path)
     log.debug('Dumping merged list\n%s', pformat(merged))
 
-    create_output(path, merged, overwrite)
+    create_output(path, merged, overwrite, simulate)
 
 
-def create_output(base, folders, overwrite):
+def create_output(base, folders, overwrite, simulate):
     """Create the output directory structure.
 
     At the correct level of folder items create the symlink structure. The
@@ -171,18 +174,21 @@ def create_output(base, folders, overwrite):
             # then link it; otherwise, do nothing.
             if os.path.exists(path):
                 if os.path.islink(path) and overwrite:
-                    os.remove(path)
                     log.debug('Linking (overwriting) %s to %s', path,
                               f.absolute_path)
-                    os.symlink(f.absolute_path, path)
+                    if not simulate:
+                        os.remove(path)
+                        os.symlink(f.absolute_path, path)
                 else:
                     log.info('Not overwriting %s', path)
             else:
                 log.debug('Linking %s to %s', path, f.absolute_path)
-                os.symlink(f.absolute_path, path)
+                if not simulate:
+                    os.symlink(f.absolute_path, path)
         elif not os.path.exists(path):
             log.debug('Creating directory: %s', path)
-            os.mkdir(path)
+            if not simulate:
+                os.mkdir(path)
 
 if __name__ == '__main__':
     mmirror()
