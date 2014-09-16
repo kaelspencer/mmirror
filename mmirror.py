@@ -50,17 +50,20 @@ class Folder(object):
               'symlinks will be created. 1 will link folders under source.')
 @click.option('--followsymlinks', is_flag=True,
               help='Follow symbolic links in the source paths')
+@click.option('--relative', is_flag=True, help='The symbolic links should be '
+              'relative paths instead of absolute paths.')
 @click.option('-v', '--verbose', count=True,
               help='Logging verbosity, -vv for very verbose.')
 def mmirror(source_high, source_low, output_high, output_low, depth,
-            followsymlinks, verbose):
+            followsymlinks, relative, verbose):
     """Create a symlinked merged directory of high and low sources.
 
     Two inputs are provided which have some overlapping data but with different
     quality. This method merges these two inputs. The low output contains the
     merge while favoring the low quality input; the high output favors the
     high quality input. Both output folders will have the same data just of
-    different quality.
+    different quality. Symbolic links are absolute paths by default but can be
+    relative with the proper switch.
 
     Imagine inputs the following inputs as arrays instead of folders.
     Low: 0, 1, 2, 3, 4
@@ -102,10 +105,10 @@ def mmirror(source_high, source_low, output_high, output_low, depth,
     log.debug('Dumping low source list\n%s', pformat(slow))
 
     if output_high:
-        mirror(output_high, shigh, slow)
+        mirror(output_high, shigh, slow, relative)
 
     if output_low:
-        mirror(output_low, slow, shigh)
+        mirror(output_low, slow, shigh, relative)
 
 
 def iterate_input(absolute, depth, followsymlinks, relative=''):
@@ -131,7 +134,7 @@ def iterate_input(absolute, depth, followsymlinks, relative=''):
     return result
 
 
-def mirror(path, primary, secondary):
+def mirror(path, primary, secondary, relative):
     """Merge secondary onto primary and output the result to path.
 
     First, ensure the target path exists. Then merge the two lists of Folders
@@ -152,10 +155,10 @@ def mirror(path, primary, secondary):
     merged.sort(key=Folder.relative_path)
     log.debug('Dumping merged list\n%s', pformat(merged))
 
-    create_output(path, merged)
+    create_output(path, merged, relative)
 
 
-def create_output(base, folders):
+def create_output(base, folders, relative):
     """Create the output directory structure.
 
     At the correct level of folder items create the symlink structure. The
@@ -164,8 +167,15 @@ def create_output(base, folders):
     for f in folders:
         path = '%s/%s' % (base, f.relative_path)
         if f.at_depth:
-            log.debug('Linking %s to %s', path, f.absolute_path)
-            os.symlink(f.absolute_path, path)
+            if relative:
+                # Get the relative path, We want a relative link from the
+                # parent not this target so remove the leading ../
+                relpath = os.path.relpath(f.absolute_path, path)[3:]
+                log.debug('Linking %s to %s', path, relpath)
+                os.symlink(relpath, path)
+            else:
+                log.debug('Linking %s to %s', path, f.absolute_path)
+                os.symlink(f.absolute_path, path)
         elif not os.path.exists(path):
             log.debug('Creating directory: %s', path)
             os.mkdir(path)
