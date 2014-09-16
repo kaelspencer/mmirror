@@ -3,7 +3,7 @@ __mmirror__ is a tool to merge two folder structures, having a preference when e
 
 I wrote __mmirror__ with my music in mind, but in reality it could be used to deduplicate any pair of folders. A depth parameter tells the script at which level symbolic links should be created, and any folder above it will actually be created. My music is organized as follows: `music/FLAC/The Lawrence Arms/[2014] Metropole/`. I run the script with `music/FLAC/` as the high quality input and I want the individual albums - not the artists - to be the symlink; thus, I run with a depth of 2.
 
-The script requires two input directories. It's most useful when there are some subdirectories that are duplicates, but this is by no means necessary. Both the high and low outputs will contain the same dataset in name, the difference will be where the symlinks point for duplicates.
+The script requires two input directories. It's most useful when there are some subdirectories that are duplicates, but this is by no means necessary. Both the high and low outputs will contain the same dataset in name, the difference will be where the symlinks point for duplicates. By default __mmirror__ uses absolute paths for the symlink targets. You can use relative paths with the switch `--relative`.
 
 Imagine the following inputs as arrays instead of folders.
 
@@ -28,6 +28,7 @@ Options:
   * `-d`, `--depth INTEGER` Defines the depth at which symlinks will be created. 1 will link folders under source.
   * `--followsymlinks` Follow symbolic links in the source paths
   * `--overwritesymlinks` Overwrite symlinks in the output directory.
+  * `--relative` The symbolic links should be relative paths instead of absolute paths.
   * `--simulate` Simulation mode. Don't actually do anything.
   * `-v`, `--verbose INTEGER RANGE` Logging verbosity, `-vv` for very verbose.
   * `--help` Show this message and exit.
