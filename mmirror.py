@@ -50,12 +50,16 @@ class Folder(object):
               'symlinks will be created. 1 will link folders under source.')
 @click.option('--followsymlinks', is_flag=True,
               help='Follow symbolic links in the source paths')
+@click.option('--overwritesymlinks', is_flag=True,
+              help='Overwrite symlinks in the output directory.')
 @click.option('--relative', is_flag=True, help='The symbolic links should be '
               'relative paths instead of absolute paths.')
+@click.option('--simulate', is_flag=True,
+              help='Simulation mode. Don\'t actually do anything.')
 @click.option('-v', '--verbose', count=True,
               help='Logging verbosity, -vv for very verbose.')
 def mmirror(source_high, source_low, output_high, output_low, depth,
-            followsymlinks, relative, verbose):
+            followsymlinks, overwritesymlinks, relative, simulate, verbose):
     """Create a symlinked merged directory of high and low sources.
 
     Two inputs are provided which have some overlapping data but with different
@@ -66,13 +70,21 @@ def mmirror(source_high, source_low, output_high, output_low, depth,
     relative with the proper switch.
 
     Imagine inputs the following inputs as arrays instead of folders.
+
     Low: 0, 1, 2, 3, 4
+
     High: 2, 3, 4, 5
 
     That will yield the following output arrays, where the l and h prefix
     correspond to which source is used.
+
     Low: l0, l1, l2, l3, l4, h5
+
     High: l0, l1, h2, h3, h4, 5
+
+    To update the output directories, run with --overwritesymlinks. This will
+    update the symbolic links with new values. Be careful, this should be run
+    with the same depth value as the first run.
     """
     if verbose == 1:
         log.setLevel(logging.INFO)
@@ -105,10 +117,10 @@ def mmirror(source_high, source_low, output_high, output_low, depth,
     log.debug('Dumping low source list\n%s', pformat(slow))
 
     if output_high:
-        mirror(output_high, shigh, slow, relative)
+        mirror(output_high, shigh, slow, overwritesymlinks, simulate, relative)
 
     if output_low:
-        mirror(output_low, slow, shigh, relative)
+        mirror(output_low, slow, shigh, overwritesymlinks, simulate, relative)
 
 
 def iterate_input(absolute, depth, followsymlinks, relative=''):
@@ -134,7 +146,7 @@ def iterate_input(absolute, depth, followsymlinks, relative=''):
     return result
 
 
-def mirror(path, primary, secondary, relative):
+def mirror(path, primary, secondary, overwrite, simulate, relative):
     """Merge secondary onto primary and output the result to path.
 
     First, ensure the target path exists. Then merge the two lists of Folders
@@ -143,22 +155,18 @@ def mirror(path, primary, secondary, relative):
     """
     if not os.path.exists(path):
         log.info('Creating directory %s', path)
-        os.mkdir(path)
-
-    # Overwrite options are not clear. Fail if the output directory isn't empty
-    output = iterate_input(path, 1, False)
-    if len(output):
-        raise Exception('Output directory must be empty.')
+        if not simulate:
+            os.mkdir(path)
 
     merged = list(primary)
     merged.extend(filter(lambda x: x not in primary, secondary))
     merged.sort(key=Folder.relative_path)
     log.debug('Dumping merged list\n%s', pformat(merged))
 
-    create_output(path, merged, relative)
+    create_output(path, merged, overwrite, simulate, relative)
 
 
-def create_output(base, folders, relative):
+def create_output(base, folders, overwrite, simulate, relative):
     """Create the output directory structure.
 
     At the correct level of folder items create the symlink structure. The
@@ -170,15 +178,30 @@ def create_output(base, folders, relative):
             if relative:
                 # Get the relative path, We want a relative link from the
                 # parent not this target so remove the leading ../
-                relpath = os.path.relpath(f.absolute_path, path)[3:]
-                log.debug('Linking %s to %s', path, relpath)
-                os.symlink(relpath, path)
+                target = os.path.relpath(f.absolute_path, path)[3:]
             else:
-                log.debug('Linking %s to %s', path, f.absolute_path)
-                os.symlink(f.absolute_path, path)
+                target = f.absolute_path
+
+            # This is the item that needs to be linked. If the destination does
+            # not exist, link it. If it does, one of two things can happen: if
+            # the destination is a link and overwritesymlinks is set, remove it
+            # then link it; otherwise, do nothing.
+            if os.path.exists(path):
+                if os.path.islink(path) and overwrite:
+                    log.debug('Linking (overwriting) %s to %s', path, target)
+                    if not simulate:
+                        os.remove(path)
+                        os.symlink(target, path)
+                else:
+                    log.info('Not overwriting %s', path)
+            else:
+                log.debug('Linking %s to %s', path, target)
+                if not simulate:
+                    os.symlink(target, path)
         elif not os.path.exists(path):
             log.debug('Creating directory: %s', path)
-            os.mkdir(path)
+            if not simulate:
+                os.mkdir(path)
 
 if __name__ == '__main__':
     mmirror()
